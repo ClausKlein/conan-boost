@@ -28,7 +28,8 @@ class BoostConan(ConanFile):
     options.update({"without_%s" % libname: [True, False] for libname in lib_list})
 
     default_options = ["shared=False", "header_only=False", "fPIC=False"]
-    default_options.extend(["without_%s=False" % libname for libname in lib_list if libname != "python"])
+    default_options.extend(["without_%s=False" %
+                            libname for libname in lib_list if libname != "python"])
     default_options.append("without_python=True")
     default_options = tuple(default_options)
 
@@ -49,7 +50,7 @@ class BoostConan(ConanFile):
         if self.zip_bzip2_requires_needed:
             self.requires("bzip2/1.0.6@conan/stable")
             self.options["bzip2"].shared = False
-            
+
             self.requires("zlib/1.2.11@conan/stable")
             self.options["zlib"].shared = False
 
@@ -112,7 +113,8 @@ class BoostConan(ConanFile):
             flags.append("--layout=system")
 
         if self.settings.compiler == "Visual Studio" and self.settings.compiler.runtime:
-            flags.append("runtime-link=%s" % ("static" if "MT" in str(self.settings.compiler.runtime) else "shared"))
+            flags.append("runtime-link=%s" %
+                         ("static" if "MT" in str(self.settings.compiler.runtime) else "shared"))
 
         if self.settings.os == "Windows" and self.settings.compiler == "gcc":
             flags.append("threading=multi")
@@ -271,7 +273,8 @@ class BoostConan(ConanFile):
         try:
             bootstrap = "bootstrap.bat" if tools.os_info.is_windows else "./bootstrap.sh"
             with tools.vcvars(self.settings) if self.settings.compiler == "Visual Studio" else tools.no_op():
-                self.output.info("Using %s %s" % (self.settings.compiler, self.settings.compiler.version))
+                self.output.info("Using %s %s" %
+                                 (self.settings.compiler, self.settings.compiler.version))
                 with tools.chdir(folder):
                     cmd = "%s %s" % (bootstrap, self._get_boostrap_toolset())
                     self.output.info(cmd)
@@ -342,7 +345,7 @@ class BoostConan(ConanFile):
 
         # Flat the list and append the missing order
         self.cpp_info.libs = [item for sublist in ordered_libs
-                                      for item in sublist if sublist] + missing_order_info
+                              for item in sublist if sublist] + missing_order_info
 
         if self.options.without_test:  # remove boost_unit_test_framework
             self.cpp_info.libs = [lib for lib in self.cpp_info.libs if "unit_test" not in lib]
