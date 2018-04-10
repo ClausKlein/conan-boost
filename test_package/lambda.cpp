@@ -1,4 +1,5 @@
 #include <boost/lambda/lambda.hpp>
+#include <boost/lambda/algorithm.hpp>
 #include <iostream>
 #include <vector>
 
@@ -10,7 +11,8 @@ int main(int argc, const char * const argv[])
     for (int i = 1; i < argc; ++i)
         values.push_back(atoi(argv[i]));
 
-    std::for_each(values.begin(), values.end(), std::cout << _1 * 3 << " " );
+    for_each(values.begin(), values.end(), std::cout << _1 * 3 << " " );
 
     return 0;
 }
+

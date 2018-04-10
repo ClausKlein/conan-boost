@@ -12,11 +12,11 @@ endif()
 conan_basic_setup(TARGETS)
 
 if(NOT HEADER_ONLY)
-	if(WITH_PYTHON)
-		find_package(Boost COMPONENTS regex python REQUIRED)
-	else()
-		find_package(Boost COMPONENTS regex REQUIRED)
-	endif()
+    if(WITH_PYTHON)
+        find_package(Boost COMPONENTS regex python REQUIRED)
+    else()
+        find_package(Boost COMPONENTS regex REQUIRED)
+    endif()
 
     include_directories(${Boost_INCLUDE_DIRS})
     add_executable(lambda lambda.cpp)
@@ -40,7 +40,8 @@ if(NOT HEADER_ONLY)
              COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} "$<TARGET_FILE:regex_exe>")
 
 else()
-	add_executable(lambda lambda.cpp)
+    add_executable(lambda lambda.cpp)
+    target_include_directories(lambda PRIVATE ${CONAN_INCLUDE_DIRS_BOOST})
 endif()
 
 add_test(NAME TestLambda
