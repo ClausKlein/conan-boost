@@ -9,7 +9,7 @@ if(CONAN_SETTINGS_OS STREQUAL "Android")
     set(CONAN_LIBCXX "") # NDK fails when specified: https://github.com/android-ndk/ndk/issues/541
 endif()
 
-conan_basic_setup(TARGETS)
+conan_basic_setup()
 
 if(NOT HEADER_ONLY)
     if(WITH_PYTHON)
@@ -25,8 +25,8 @@ if(NOT HEADER_ONLY)
     target_link_libraries(regex_exe ${Boost_LIBRARIES})
 
     message("LIBS=> ${CONAN_LIBS}")
-    ### target_link_libraries(my_test ${CONAN_LIBS})
-    conan_target_link_libraries(my_test)
+    target_link_libraries(my_test ${CONAN_LIBS})
+    # FIXME! conan_target_link_libraries(my_test)
 
     if(WITH_PYTHON)
         add_library(hello_ext SHARED python.cpp)
@@ -50,8 +50,8 @@ add_test(NAME TestLambda
 if(NOT HEADER_ONLY)
     # Test a different exe linking with the CONAN_LIBS to actually test the package_info
     add_executable(newregex regex.cpp)
-    ### target_link_libraries(newregex ${CONAN_LIBS})
-    conan_target_link_libraries(newregex)
+    target_link_libraries(newregex ${CONAN_LIBS})
+    # FIXME! conan_target_link_libraries(newregex)
     add_test(NAME TestRegexNew
              COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} "$<TARGET_FILE:newregex>" ${TEST_ARGS})
 endif()
