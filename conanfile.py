@@ -1,5 +1,6 @@
 from conans import ConanFile
 from conans import tools
+from conans.model.version import Version
 import os
 
 # From from *1 (see below, b2 --show-libraries), also ordered following linkage order
@@ -23,11 +24,12 @@ class BoostConan(ConanFile):
     options = {
         "shared": [True, False],
         "header_only": [True, False],
-        "fPIC": [True, False]
+        "fPIC": [True, False],
+        "skip_lib_rename": [True, False]
     }
     options.update({"without_%s" % libname: [True, False] for libname in lib_list})
 
-    default_options = ["shared=False", "header_only=False", "fPIC=False"]
+    default_options = ["shared=False", "header_only=False", "fPIC=True"]
     default_options.extend(["without_%s=False" %
                             libname for libname in lib_list if libname != "python"])
     default_options.append("without_python=True")
@@ -69,6 +71,14 @@ class BoostConan(ConanFile):
         zip_name = "%s%s" % (self.folder_name, extension)
         url = "https://dl.bintray.com/boostorg/release/%s/source/%s" % (self.version, zip_name)
         tools.get(url, sha256=sha256)
+
+        if 'gcc' == self.settings.compiler and Version(str(self.settings.compiler)) < '6':
+            # https://svn.boost.org/trac10/ticket/13368
+            tools.replace_in_file(
+                file_path='%s/boost/asio/detail/consuming_buffers.hpp' % self.folder_name,
+                search='&& result.count <',
+                replace='&& (result.count) <'
+            )
 
     ##################### BUILDING METHODS ###########################
 
@@ -120,7 +130,10 @@ class BoostConan(ConanFile):
             flags.append("threading=multi")
 
         flags.append("link=%s" % ("static" if not self.options.shared else "shared"))
-        flags.append("variant=%s" % str(self.settings.build_type).lower())
+        if self.settings.build_type == "Debug":
+            flags.append("variant=debug")
+        else:
+            flags.append("variant=release")
 
         for libname in lib_list:
             if getattr(self.options, "without_%s" % libname):
@@ -160,7 +173,9 @@ class BoostConan(ConanFile):
         arch = self.settings.get_safe('arch')
         flags = []
         self.output.info("Cross building, detecting compiler...")
-        flags.append('architecture=%s' % ('arm' if arch.startswith('arm') else arch))
+        arch = "arm" if arch.startswith("arm") else arch
+        arch = "x86" if arch == "x86_64" else arch
+        flags.append('architecture=%s' % arch)
         bits = {"x86_64": "64", "armv8": "64"}.get(str(self.settings.arch), "32")
         flags.append('address-model=%s' % bits)
         if self.settings.get_safe('os').lower() in ('linux', 'android'):
@@ -281,7 +296,7 @@ class BoostConan(ConanFile):
                     self.run(cmd)
         except Exception as exc:
             self.output.warn(str(exc))
-            if os.path.join(folder, "bootstrap.log"):
+            if os.path.exists(os.path.join(folder, "bootstrap.log")):
                 self.output.warn(tools.load(os.path.join(folder, "bootstrap.log")))
             raise
         return os.path.join(folder, "b2.exe") if tools.os_info.is_windows else os.path.join(folder, "b2")
@@ -308,21 +323,22 @@ class BoostConan(ConanFile):
         self.renames_to_make_cmake_find_package_happy()
 
     def renames_to_make_cmake_find_package_happy(self):
-        # CMake findPackage help
-        renames = []
-        for libname in os.listdir(os.path.join(self.package_folder, "lib")):
-            new_name = libname
-            libpath = os.path.join(self.package_folder, "lib", libname)
-            if "-" in libname:
-                new_name = libname.split("-", 1)[0] + "." + libname.split(".")[-1]
-                if new_name.startswith("lib"):
-                    new_name = new_name[3:]
-            renames.append([libpath, os.path.join(self.package_folder, "lib", new_name)])
+        if not self.options.skip_lib_rename:
+            # CMake findPackage help
+            renames = []
+            for libname in os.listdir(os.path.join(self.package_folder, "lib")):
+                new_name = libname
+                libpath = os.path.join(self.package_folder, "lib", libname)
+                if "-" in libname:
+                    new_name = libname.split("-", 1)[0] + "." + libname.split(".")[-1]
+                    if new_name.startswith("lib"):
+                        new_name = new_name[3:]
+                renames.append([libpath, os.path.join(self.package_folder, "lib", new_name)])
 
-        for original, new in renames:
-            if original != new and not os.path.exists(new):
-                self.output.info("Rename: %s => %s" % (original, new))
-                os.rename(original, new)
+            for original, new in renames:
+                if original != new and not os.path.exists(new):
+                    self.output.info("Rename: %s => %s" % (original, new))
+                    os.rename(original, new)
 
     def package_info(self):
         gen_libs = tools.collect_libs(self)
@@ -350,6 +366,9 @@ class BoostConan(ConanFile):
         if self.options.without_test:  # remove boost_unit_test_framework
             self.cpp_info.libs = [lib for lib in self.cpp_info.libs if "unit_test" not in lib]
 
+        if self.settings.os == "Linux":
+            self.cpp_info.libs.append("rt")
+
         self.output.info("LIBRARIES: %s" % self.cpp_info.libs)
         self.output.info("Package folder: %s" % self.package_folder)
 
@@ -366,3 +385,5 @@ class BoostConan(ConanFile):
             if self.settings.compiler == "Visual Studio":
                 # DISABLES AUTO LINKING! NO SMART AND MAGIC DECISIONS THANKS!
                 self.cpp_info.defines.extend(["BOOST_ALL_NO_LIB"])
+        
+        self.env_info.BOOST_ROOT = self.package_folder
